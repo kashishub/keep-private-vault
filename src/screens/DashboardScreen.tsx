@@ -24,7 +24,12 @@ import {
   type VaultFolder,
 } from '../database/database';
 
-export default function DashboardScreen() {
+type DashboardProps = {
+  onOpenFolder: (folder: VaultFolder) => void;
+  onOpenSettings: () => void;
+};
+
+export default function DashboardScreen({ onOpenFolder, onOpenSettings, }: DashboardProps) {
   const [folders, setFolders] = useState<VaultFolder[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -154,17 +159,30 @@ const handleSaveRename = async () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#11110F" />
 
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.brand}>KEEP</Text>
-          <Text style={styles.tagline}>Your private space</Text>
+      
+    <View style={styles.header}>
+    <View>
+        <Text style={styles.brand}>KEEP</Text>
+        <Text style={styles.tagline}>Your private space</Text>
+    </View>
+
+    <View style={styles.headerRight}>
+        <View style={styles.status}>
+        <View style={styles.statusDot} />
+        <Text style={styles.statusText}>LOCAL VAULT</Text>
         </View>
 
-        <View style={styles.status}>
-          <View style={styles.statusDot} />
-          <Text style={styles.statusText}>LOCAL VAULT</Text>
-        </View>
-      </View>
+        <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={onOpenSettings}
+        activeOpacity={0.8}
+        accessibilityLabel="Open Settings"
+        >
+        <Text style={styles.settingsButtonText}>⚙</Text>
+        </TouchableOpacity>
+    </View>
+    </View>
+
 
       <View style={styles.summary}>
         <Text style={styles.sectionLabel}>YOUR COLLECTION</Text>
@@ -222,7 +240,7 @@ const handleSaveRename = async () => {
             <TouchableOpacity
               key={folder.id}
               style={styles.folderCard}
-              onPress={() => openFolder(folder)}
+              onPress={() => onOpenFolder(folder)}
               activeOpacity={0.8}
             >
               <View style={styles.folderIcon}>
@@ -584,4 +602,24 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   createText: { color: '#17150F', fontSize: 12, fontWeight: '700' },
+
+  headerRight: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+},
+settingsButton: {
+  width: 40,
+  height: 40,
+  borderRadius: 12,
+  backgroundColor: '#20201D',
+  borderWidth: 1,
+  borderColor: '#45443C',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+settingsButtonText: {
+  color: '#D8B66A',
+  fontSize: 23,
+},
 });

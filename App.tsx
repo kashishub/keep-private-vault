@@ -2,17 +2,35 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import FolderPinScreen from './src/screens/FolderPinScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import PinSetupScreen from './src/screens/PinSetupScreen';
 import RecoveryKeyScreen from './src/screens/RecoveryKeyScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
+import FolderScreen from './src/screens/FolderScreen';
+import type { VaultFolder } from './src/database/database';
+import { Alert, StatusBar } from 'react-native';
+import ChangeFolderPinScreen from './src/screens/ChangeFolderPinScreen';
+import AppPinScreen from './src/screens/AppPinScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
   PinSetup: undefined;
   RecoveryKey: undefined;
   Dashboard: undefined;
+  Settings: undefined;
+  ChangeFolderPin: undefined;
+  AppPin: undefined;
+  Folder: {
+    folderId: string;
+    folderName: string;
+  };
+  FolderPin: {
+    folderId: string;
+    folderName: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -21,7 +39,7 @@ export default function App() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="Welcome"
+        initialRouteName="AppPin"
         screenOptions={{
           headerShown: false,
           animation: 'fade',
@@ -39,8 +57,8 @@ export default function App() {
         <Stack.Screen name="PinSetup">
           {({ navigation }) => (
             <PinSetupScreen
-              onBack={() => navigation.goBack()}
               onComplete={() => navigation.navigate('RecoveryKey')}
+              onBack={() => navigation.goBack()}
             />
           )}
         </Stack.Screen>
@@ -48,13 +66,92 @@ export default function App() {
         <Stack.Screen name="RecoveryKey">
           {({ navigation }) => (
             <RecoveryKeyScreen
-              onBack={() => navigation.goBack()}
               onComplete={() => navigation.replace('Dashboard')}
+              onBack={() => navigation.goBack()}
             />
           )}
         </Stack.Screen>
 
-        <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        <Stack.Screen name="AppPin"
+          options={{ headerShown: false, gestureEnabled: false }}
+        >
+          {({ navigation }) => (
+            <AppPinScreen
+              onSuccess={() => navigation.replace('Dashboard')}
+            />
+          )}
+        </Stack.Screen>
+
+        
+        <Stack.Screen name="Dashboard">
+          {({ navigation }) => (
+            <DashboardScreen
+              onOpenFolder={(folder: VaultFolder) =>
+                navigation.navigate('FolderPin', {
+                  folderId: folder.id,
+                  folderName: folder.name,
+                })
+              }
+              onOpenSettings={() => navigation.navigate('Settings')}
+            />
+          )}
+        </Stack.Screen>
+
+
+        <Stack.Screen name="Settings">
+          {({ navigation }) => (
+            <SettingsScreen
+              onBack={() => navigation.goBack()}
+              onChangeAppPin={() =>
+                Alert.alert(
+                  'App PIN',
+                  'App PIN management will be connected next.'
+                )
+              }
+              onChangeFolderPin={() =>
+                navigation.navigate('ChangeFolderPin')
+              }
+            />
+          )}
+        </Stack.Screen>
+
+
+        <Stack.Screen name="ChangeFolderPin">
+          {({ navigation }) => (
+            <ChangeFolderPinScreen
+              onBack={() => navigation.goBack()}
+              onComplete={() => navigation.popTo('Dashboard')}
+            />
+          )}
+        </Stack.Screen>
+
+
+        <Stack.Screen name="FolderPin">
+          {({ navigation, route }) => (
+            <FolderPinScreen
+              folderName={route.params.folderName}
+              onBack={() => navigation.goBack()}
+              onSuccess={() =>
+                navigation.replace('Folder', {
+                  folderId: route.params.folderId,
+                  folderName: route.params.folderName,
+                })
+              }
+            />
+          )}
+        </Stack.Screen>
+
+        
+        <Stack.Screen name="Folder">
+          {({ navigation, route }) => (
+            <FolderScreen
+              folderId={route.params.folderId}
+              folderName={route.params.folderName}
+              onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
       </Stack.Navigator>
     </NavigationContainer>
   );
