@@ -14,6 +14,7 @@ import type { VaultFolder } from './src/database/database';
 import { Alert, StatusBar } from 'react-native';
 import ChangeFolderPinScreen from './src/screens/ChangeFolderPinScreen';
 import AppPinScreen from './src/screens/AppPinScreen';
+import ChangeAppPinScreen from './src/screens/ChangeAppPinScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -23,6 +24,7 @@ export type RootStackParamList = {
   Settings: undefined;
   ChangeFolderPin: undefined;
   AppPin: undefined;
+  ChangeAppPin: undefined;
   Folder: {
     folderId: string;
     folderName: string;
@@ -98,15 +100,13 @@ export default function App() {
         </Stack.Screen>
 
 
+        
         <Stack.Screen name="Settings">
           {({ navigation }) => (
             <SettingsScreen
               onBack={() => navigation.goBack()}
               onChangeAppPin={() =>
-                Alert.alert(
-                  'App PIN',
-                  'App PIN management will be connected next.'
-                )
+                navigation.navigate('ChangeAppPin')
               }
               onChangeFolderPin={() =>
                 navigation.navigate('ChangeFolderPin')
@@ -114,6 +114,7 @@ export default function App() {
             />
           )}
         </Stack.Screen>
+
 
 
         <Stack.Screen name="ChangeFolderPin">
@@ -124,6 +125,17 @@ export default function App() {
             />
           )}
         </Stack.Screen>
+
+
+        <Stack.Screen name="ChangeAppPin">
+          {({ navigation }) => (
+            <ChangeAppPinScreen
+              onBack={() => navigation.goBack()}
+              onComplete={() => navigation.popTo('Dashboard')}
+            />
+          )}
+        </Stack.Screen>
+
 
 
         <Stack.Screen name="FolderPin">
