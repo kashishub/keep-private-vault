@@ -18,6 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   initializeDatabase,
   getFolders,
+  getPhotoCounts,
   createFolder,
   renameFolder,
   deleteFolder,
@@ -31,6 +32,7 @@ type DashboardProps = {
 
 export default function DashboardScreen({ onOpenFolder, onOpenSettings, }: DashboardProps) {
   const [folders, setFolders] = useState<VaultFolder[]>([]);
+  const [photoCounts, setPhotoCounts] = useState<Record<string, number>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [renameTarget, setRenameTarget] = useState<VaultFolder | null>(null);
@@ -40,8 +42,13 @@ export default function DashboardScreen({ onOpenFolder, onOpenSettings, }: Dashb
   const loadFolders = useCallback(async () => {
     try {
       await initializeDatabase();
-      const savedFolders = await getFolders();
+      const [savedFolders, savedPhotoCounts] = await Promise.all([
+        getFolders(),
+        getPhotoCounts(),
+      ]);
+
       setFolders(savedFolders);
+      setPhotoCounts(savedPhotoCounts);
     } catch (error) {
       console.error('Failed to load folders:', error);
       Alert.alert('Database error', 'Could not load your folders.');
@@ -197,7 +204,9 @@ const handleSaveRename = async () => {
             <Text style={styles.statLabel}>FOLDERS</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>0</Text>
+            <Text style={styles.statNumber}>
+              {Object.values(photoCounts).reduce((total, count) => total + count, 0)}
+            </Text>
             <Text style={styles.statLabel}>PHOTOS</Text>
           </View>
           <View style={styles.statCard}>
@@ -252,7 +261,11 @@ const handleSaveRename = async () => {
                 <Text style={styles.folderDate}>
                   Created {new Date(folder.createdAt).toLocaleDateString()}
                 </Text>
-                <Text style={styles.folderMeta}>0 photos · PIN planned</Text>
+                <Text style={styles.folderMeta}>
+                  {photoCounts[folder.id] ?? 0}{' '}
+                  {(photoCounts[folder.id] ?? 0) === 1 ? 'photo' : 'photos'}
+                  {' · '}PIN protected
+                </Text>
               </View>
 
               <TouchableOpacity

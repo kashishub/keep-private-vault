@@ -106,6 +106,29 @@ export async function deleteFolder(id: string): Promise<void> {
 }
 
 
+export async function getPhotoCounts(): Promise<Record<string, number>> {
+  const db = await getDatabase();
+
+  const rows = await db.getAllAsync<{
+    folder_id: string;
+    photo_count: number;
+  }>(
+    `SELECT folder_id, COUNT(*) AS photo_count
+     FROM photos
+     GROUP BY folder_id;`,
+  );
+
+  const counts: Record<string, number> = {};
+
+  for (const row of rows) {
+    counts[row.folder_id] = row.photo_count;
+  }
+
+  return counts;
+}
+
+
+
 export type VaultPhoto = {
   id: string;
   folderId: string;
