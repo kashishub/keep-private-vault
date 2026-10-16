@@ -1,5 +1,6 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { setPhotoPickerOpen } from '../security/appLock';
 import { testEncryptionRoundTrip } from '../security/crypto';
 import {
   Alert,
@@ -15,6 +16,7 @@ import {
   Pressable,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library/legacy';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
   initializeDatabase,
@@ -94,49 +96,98 @@ const runEncryptionTest = async () => {
 };
 
 
-  const pickPhotos = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: true,
-        selectionLimit: 20,
-        quality: 1,
+  
+const pickPhotos = async () => {
+  setPhotoPickerOpen(true);
+
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      selectionLimit: 20,
+      quality: 1,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    for (const [index, asset] of result.assets.entries()) {
+      if (!FileSystem.documentDirectory) {
+        throw new Error('App storage is unavailable.');
+      }
+
+      const photoId = `${Date.now()}-${index}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+
+      const fileName = asset.fileName || `photo-${photoId}.jpg`;
+      const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const destination =
+        `${FileSystem.documentDirectory}keep-${photoId}-${safeFileName}`;
+
+      await FileSystem.copyAsync({
+        from: asset.uri,
+        to: destination,
       });
 
-      if (result.canceled) return;
-
-      
-for (const [index, asset] of result.assets.entries()) {
-  if (!FileSystem.documentDirectory) {
-    throw new Error('App storage is unavailable.');
-  }
-
-  const photoId = `${Date.now()}-${index}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
-
-  const fileName = asset.fileName || `photo-${photoId}.jpg`;
-  const destination =
-    `${FileSystem.documentDirectory}keep-${photoId}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-
-  await FileSystem.copyAsync({
-    from: asset.uri,
-    to: destination,
-  });
-
-  await savePhoto(folderId, fileName, destination);
-}
-
-const savedPhotos = await getPhotos(folderId);
-setPhotos(savedPhotos);
-
-    } catch (error) {
-      console.error('Photo selection failed:', error);
-      Alert.alert('Could not select photos', 'Please try again.');
+      await savePhoto(folderId, fileName, destination);
     }
-  };
 
-  const takePhoto = () => {
+    const savedPhotos = await getPhotos(folderId);
+    setPhotos(savedPhotos);
+  } catch (error) {
+    console.error('Photo selection failed:', error);
+    Alert.alert('Could not select photos', 'Please try again.');
+  } finally {
+    setPhotoPickerOpen(false);
+  }
+};
+
+
+  const downloadPhoto = async (photo: VaultPhoto) => {
+  setPhotoPickerOpen(true);
+
+  try {
+    const permission = await MediaLibrary.requestPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert(
+        'Gallery permission required',
+        'Allow KEEP to add photos to your gallery, then try again.',
+      );
+      return;
+    }
+
+    const fileInfo = await FileSystem.getInfoAsync(photo.fileUri);
+
+    if (!fileInfo.exists || fileInfo.isDirectory) {
+      Alert.alert(
+        'Photo unavailable',
+        'This photo could not be found inside KEEP.',
+      );
+      return;
+    }
+
+    await MediaLibrary.saveToLibraryAsync(photo.fileUri);
+
+    Alert.alert(
+      'Downloaded',
+      'A copy of this photo was saved to your gallery. The copy inside KEEP is unchanged.',
+    );
+  } catch (error) {
+    console.error('Failed to download photo:', error);
+
+    Alert.alert(
+      'Download failed',
+      'Could not save this photo to your gallery. Please try again.',
+    );
+  } finally {
+    setPhotoPickerOpen(false);
+  }
+};
+
+const takePhoto = () => {
     Alert.alert(
       'Camera coming next',
       'We will add direct camera capture after gallery importing is connected.',
@@ -240,25 +291,35 @@ const removePhoto = (photoId: string) => {
 
       <ScrollView contentContainerStyle={styles.grid}>
         {photos.map((photo) => (
-          <TouchableOpacity
-            key={photo.id}
-            style={styles.photoCard}
-            onPress={() => setSelectedPhoto(photo)}
-            onLongPress={() => removePhoto(photo.id)}
-            activeOpacity={0.85}
-          >
-            <Image
-              source={{ uri: photo.fileUri }}  
-              style={[
-                styles.photo,
-                securePreview && styles.obscuredPhoto,
-              ]}
-              blurRadius={securePreview ? 18 : 0}
-            />
-            <Text style={styles.photoName} numberOfLines={1}>
-              {photo.name}
-            </Text>
-          </TouchableOpacity>
+          <View key={photo.id} style={styles.photoCard}>
+            <TouchableOpacity
+              onPress={() => setSelectedPhoto(photo)}
+              onLongPress={() => removePhoto(photo.id)}
+              activeOpacity={0.85}
+            >
+              <Image
+                source={{ uri: photo.fileUri }}
+                style={[
+                  styles.photo,
+                  securePreview && styles.obscuredPhoto,
+                ]}
+                blurRadius={securePreview ? 18 : 0}
+              />
+              <Text style={styles.photoName} numberOfLines={1}>
+                {photo.name}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.downloadButton}
+              onPress={() => downloadPhoto(photo)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Download ${photo.name} to gallery`}
+            >
+              <Text style={styles.downloadButtonText}>↓  Download to Gallery</Text>
+            </TouchableOpacity>
+          </View>
         ))}
 
         {photos.length === 0 && (
@@ -380,6 +441,23 @@ const styles = StyleSheet.create({
   },
   obscuredPhoto: { opacity: 0.9 },
   photoName: { color: '#A9A397', fontSize: 10, padding: 6 },
+  downloadButton: {
+    marginTop: 3,
+    marginBottom: 3,
+    backgroundColor: '#29251B',
+    borderWidth: 1,
+    borderColor: '#5A4C32',
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  downloadButtonText: {
+    color: '#D8B66A',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   emptyState: {
     flex: 1,
     width: '100%',

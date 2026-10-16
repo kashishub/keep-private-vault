@@ -18,7 +18,7 @@ import FolderScreen from './src/screens/FolderScreen';
 import ChangeFolderPinScreen from './src/screens/ChangeFolderPinScreen';
 import AppPinScreen from './src/screens/AppPinScreen';
 import ChangeAppPinScreen from './src/screens/ChangeAppPinScreen';
-
+import { isPhotoPickerOpen } from './src/security/appLock';
 import type { VaultFolder } from './src/database/database';
 
 export type RootStackParamList = {
@@ -73,7 +73,8 @@ export default function App() {
         if (
           previousState === 'active' &&
           (nextAppState === 'inactive' ||
-            nextAppState === 'background')
+            nextAppState === 'background') &&
+          !isPhotoPickerOpen()
         ) {
           shouldLock.current = true;
         }
