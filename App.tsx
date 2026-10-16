@@ -1,20 +1,24 @@
 
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect, useRef } from 'react';
+import {
+  NavigationContainer,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { AppState } from 'react-native';
+
 import FolderPinScreen from './src/screens/FolderPinScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
-
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import PinSetupScreen from './src/screens/PinSetupScreen';
 import RecoveryKeyScreen from './src/screens/RecoveryKeyScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import FolderScreen from './src/screens/FolderScreen';
-import type { VaultFolder } from './src/database/database';
-import { Alert, StatusBar } from 'react-native';
 import ChangeFolderPinScreen from './src/screens/ChangeFolderPinScreen';
 import AppPinScreen from './src/screens/AppPinScreen';
 import ChangeAppPinScreen from './src/screens/ChangeAppPinScreen';
+
+import type { VaultFolder } from './src/database/database';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -37,9 +41,50 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+const navigationRef =
+  createNavigationContainerRef<RootStackParamList>();
+
 export default function App() {
+  const previousAppState = useRef(AppState.currentState);
+  const shouldLock = useRef(false);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextAppState) => {
+        const previousState = previousAppState.current;
+
+        if (
+          previousState === 'active' &&
+          (nextAppState === 'inactive' ||
+            nextAppState === 'background')
+        ) {
+          shouldLock.current = true;
+        }
+
+        if (
+          nextAppState === 'active' &&
+          shouldLock.current
+        ) {
+          shouldLock.current = false;
+
+          if (navigationRef.isReady()) {
+            navigationRef.resetRoot({
+              index: 0,
+              routes: [{ name: 'AppPin' }],
+            });
+          }
+        }
+
+        previousAppState.current = nextAppState;
+      },
+    );
+
+    return () => subscription.remove();
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="AppPin"
         screenOptions={{
@@ -74,7 +119,8 @@ export default function App() {
           )}
         </Stack.Screen>
 
-        <Stack.Screen name="AppPin"
+        <Stack.Screen
+          name="AppPin"
           options={{ headerShown: false, gestureEnabled: false }}
         >
           {({ navigation }) => (
@@ -84,7 +130,6 @@ export default function App() {
           )}
         </Stack.Screen>
 
-        
         <Stack.Screen name="Dashboard">
           {({ navigation }) => (
             <DashboardScreen
@@ -99,23 +144,17 @@ export default function App() {
           )}
         </Stack.Screen>
 
-
-        
         <Stack.Screen name="Settings">
           {({ navigation }) => (
             <SettingsScreen
               onBack={() => navigation.goBack()}
-              onChangeAppPin={() =>
-                navigation.navigate('ChangeAppPin')
-              }
+              onChangeAppPin={() => navigation.navigate('ChangeAppPin')}
               onChangeFolderPin={() =>
                 navigation.navigate('ChangeFolderPin')
               }
             />
           )}
         </Stack.Screen>
-
-
 
         <Stack.Screen name="ChangeFolderPin">
           {({ navigation }) => (
@@ -126,7 +165,6 @@ export default function App() {
           )}
         </Stack.Screen>
 
-
         <Stack.Screen name="ChangeAppPin">
           {({ navigation }) => (
             <ChangeAppPinScreen
@@ -135,8 +173,6 @@ export default function App() {
             />
           )}
         </Stack.Screen>
-
-
 
         <Stack.Screen name="FolderPin">
           {({ navigation, route }) => (
@@ -153,7 +189,6 @@ export default function App() {
           )}
         </Stack.Screen>
 
-        
         <Stack.Screen name="Folder">
           {({ navigation, route }) => (
             <FolderScreen
@@ -163,7 +198,6 @@ export default function App() {
             />
           )}
         </Stack.Screen>
-
       </Stack.Navigator>
     </NavigationContainer>
   );
