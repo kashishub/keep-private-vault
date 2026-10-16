@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
+import * as ScreenCapture from 'expo-screen-capture';
 import {
   NavigationContainer,
   createNavigationContainerRef,
@@ -46,6 +47,21 @@ const navigationRef =
 
 export default function App() {
   const previousAppState = useRef(AppState.currentState);
+  useEffect(() => {
+    async function enableScreenProtection() {
+      try {
+        await ScreenCapture.preventScreenCaptureAsync();
+      } catch (error) {
+        console.warn('Could not enable screen protection:', error);
+      }
+    }
+
+    enableScreenProtection();
+
+    return () => {
+      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    };
+  }, []);
   const shouldLock = useRef(false);
 
   useEffect(() => {
