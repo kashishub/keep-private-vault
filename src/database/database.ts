@@ -1,5 +1,6 @@
 
 import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export type VaultFolder = {
   id: string;
@@ -99,11 +100,43 @@ export async function renameFolder(
   );
 }
 
+
 export async function deleteFolder(id: string): Promise<void> {
   const db = await getDatabase();
 
-  await db.runAsync('DELETE FROM folders WHERE id = ?;', id);
+  const photos = await db.getAllAsync<{ file_uri: string }>(
+    'SELECT file_uri FROM photos WHERE folder_id = ?;',
+    id,
+  );
+
+  const documentDirectory = FileSystem.documentDirectory;
+
+  // Remove only files stored inside KEEP's private document directory.
+  for (const photo of photos) {
+    if (
+      documentDirectory &&
+      photo.file_uri.startsWith(documentDirectory)
+    ) {
+      await FileSystem.deleteAsync(photo.file_uri, {
+        idempotent: true,
+      });
+    }
+  }
+
+  // Remove the database records only after file cleanup succeeds.
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      'DELETE FROM photos WHERE folder_id = ?;',
+      id,
+    );
+
+    await db.runAsync(
+      'DELETE FROM folders WHERE id = ?;',
+      id,
+    );
+  });
 }
+
 
 
 export async function getPhotoCounts(): Promise<Record<string, number>> {
@@ -195,3 +228,31 @@ export async function deletePhoto(photoId: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM photos WHERE id = ?;', photoId);
 }
+
+
+export async function getTotalPhotoStorageBytes(): Promise<number> {
+  const db = await getDatabase();
+
+  const photos = await db.getAllAsync<{ file_uri: string }>(
+    'SELECT file_uri FROM photos;',
+  );
+
+  let totalBytes = 0;
+
+  for (const photo of photos) {
+    try {
+      const info = await (await import('expo-file-system/legacy')).getInfoAsync(
+        photo.file_uri,
+      );
+
+      if (info.exists && !info.isDirectory && typeof info.size === 'number') {
+        totalBytes += info.size;
+      }
+    } catch (error) {
+      console.warn('Could not read photo size:', photo.file_uri, error);
+    }
+  }
+
+  return totalBytes;
+}
+

@@ -19,6 +19,7 @@ import {
   initializeDatabase,
   getFolders,
   getPhotoCounts,
+  getTotalPhotoStorageBytes,
   createFolder,
   renameFolder,
   deleteFolder,
@@ -38,17 +39,21 @@ export default function DashboardScreen({ onOpenFolder, onOpenSettings, }: Dashb
   const [renameTarget, setRenameTarget] = useState<VaultFolder | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [storageBytes, setStorageBytes] = useState(0);
 
   const loadFolders = useCallback(async () => {
     try {
       await initializeDatabase();
-      const [savedFolders, savedPhotoCounts] = await Promise.all([
-        getFolders(),
-        getPhotoCounts(),
-      ]);
+      const [savedFolders, savedPhotoCounts, savedStorageBytes] =
+        await Promise.all([
+          getFolders(),
+          getPhotoCounts(),
+          getTotalPhotoStorageBytes(),
+        ]);
 
       setFolders(savedFolders);
       setPhotoCounts(savedPhotoCounts);
+      setStorageBytes(savedStorageBytes);
     } catch (error) {
       console.error('Failed to load folders:', error);
       Alert.alert('Database error', 'Could not load your folders.');
@@ -210,7 +215,11 @@ const handleSaveRename = async () => {
             <Text style={styles.statLabel}>PHOTOS</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>0 MB</Text>
+            <Text style={styles.statNumber}>
+              {storageBytes < 1024 * 1024
+                ? `${(storageBytes / 1024).toFixed(0)} KB`
+                : `${(storageBytes / (1024 * 1024)).toFixed(1)} MB`}
+            </Text>
             <Text style={styles.statLabel}>STORAGE</Text>
           </View>
         </View>
